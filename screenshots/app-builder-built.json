@@ -1,0 +1,38 @@
+{
+  "url": "http://127.0.0.1:8081/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "AEGIS",
+      "hasCanvas": true,
+      "bodyTextLen": 348,
+      "bodyTextHash": "dbfa1368e5391f6059fc9507457ddf5cebd698ce602c99e6b7fb8aee46ca9cc4",
+      "bodyTextPrefix": "ОРБИТАЛЬНЫЙ ФЛОТ · 2.99D AEGIS Захватывай планетарные базы, нани",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "AEGIS",
+      "hasCanvas": true,
+      "bodyTextLen": 348,
+      "bodyTextHash": "dbfa1368e5391f6059fc9507457ddf5cebd698ce602c99e6b7fb8aee46ca9cc4",
+      "bodyTextPrefix": "ОРБИТАЛЬНЫЙ ФЛОТ · 2.99D AEGIS Захватывай планетарные базы, нани",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-built.json",
+  "divergesFromBaseline": false,
+  "baselineReasons": []
+}
