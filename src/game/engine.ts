@@ -17,9 +17,38 @@ import {
   type Toast,
 } from "./types";
 
+import * as THREE from "three";
+import { AudioBus } from "./audio";
+import { Brain } from "./brain";
+import { Input } from "./input";
+import {
+  makeChevronRow,
+  makeLabelSprite,
+  makeMaterials,
+  makeNebulaTexture,
+  makePlanetTexture,
+  makeShip,
+  makeStarfield,
+  type MatLib,
+} from "./meshes";
+import { pushHud } from "./store";
+import {
+  COMMAND_LABEL,
+  KIND_LABEL,
+  PRICES,
+  WORLD,
+  type Command,
+  type Faction,
+  type HudSnapshot,
+  type MiniMark,
+  type Phase,
+  type ShipKind,
+  type ShopId,
+  type Toast,
+} from "./types";
+
 const STEP = 1 / 60;
-const WORLD = 210;
-const SAVE_KEY = "aegis-hold-v1";
+const SAVE_KEY = "aegis-hold-v2";
 
 function angNorm(a: number) {
   while (a > Math.PI) a -= Math.PI * 2;
@@ -84,7 +113,7 @@ type Pickup = {
   live: boolean;
   x: number;
   z: number;
-  kind: "repair" | "ammo" | "cash";
+  kind: "repair" | "ammo" | "cash" | "fuel" | "energy";
   life: number;
   mesh: THREE.Mesh;
 };
@@ -131,6 +160,8 @@ type Planet = {
   mesh: THREE.Group;
   ring: THREE.Mesh;
   station: THREE.Mesh;
+  label: THREE.Sprite;
+  atmo: THREE.Mesh;
 };
 
 type Rock = {
@@ -141,13 +172,26 @@ type Rock = {
   spin: number;
 };
 
-const PLANET_DEF: { name: string; r: number; income: number; base: string; accent: string }[] = [
-  { name: "АСТРЕЯ", r: 16, income: 9, base: "#6d7a86", accent: "#b7c4ce" },
-  { name: "РИГЕЛЬ", r: 13, income: 6, base: "#5c6b62", accent: "#9aada0" },
-  { name: "НОВА", r: 15, income: 8, base: "#6a6460", accent: "#c4b4a8" },
-  { name: "ИКАР", r: 11, income: 5, base: "#4e5864", accent: "#8aa0b4" },
-  { name: "ГЕЛИОС", r: 18, income: 11, base: "#7a7068", accent: "#d2c6b8" },
-  { name: "КЕФ", r: 12, income: 6, base: "#585e6a", accent: "#9aa8b8" },
+const PLANET_DEF: {
+  name: string;
+  r: number;
+  income: number;
+  base: string;
+  accent: string;
+  polar: string;
+  x: number;
+  z: number;
+  owner: Faction;
+  ring?: boolean;
+}[] = [
+  { name: "АСТРЕЯ", r: 22, income: 10, base: "#6a8aa0", accent: "#c5e4f2", polar: "#eef6fa", x: -3200, z: -3100, owner: "player", ring: true },
+  { name: "КЕФ", r: 14, income: 6, base: "#5a6a62", accent: "#9ab0a4", polar: "#dce6e0", x: -2100, z: -2400, owner: "neutral" },
+  { name: "РИГЕЛЬ", r: 16, income: 7, base: "#3e6a58", accent: "#7ec4a0", polar: "#d8eee4", x: -900, z: -1500, owner: "neutral" },
+  { name: "ИКАР", r: 13, income: 5, base: "#7a6a58", accent: "#d2c0a8", polar: "#efe6d8", x: 200, z: -200, owner: "neutral" },
+  { name: "ВОЛГА", r: 15, income: 7, base: "#4a5e72", accent: "#8ab0c8", polar: "#dce8f0", x: -700, z: 1900, owner: "neutral" },
+  { name: "НОВА", r: 17, income: 8, base: "#8a5a50", accent: "#e0a090", polar: "#f0dcd4", x: 1700, z: 700, owner: "enemy" },
+  { name: "ТИФОН", r: 14, income: 6, base: "#6a5050", accent: "#c08078", polar: "#e8d4d0", x: 2300, z: -1500, owner: "enemy" },
+  { name: "ГЕЛИОС", r: 24, income: 12, base: "#8a7060", accent: "#e8d0b8", polar: "#f4ece0", x: 2900, z: 2400, owner: "enemy", ring: true },
 ];
 
 export class Game {
@@ -204,50 +248,83 @@ export class Game {
   captureProgress = 0;
   nearBase = false;
   incomeAcc = 0;
-  maxAllies = 6;
+  maxAllies = 10;
+  fuel = 100;
+  energy = 100;
+  autopilot = false;
+  mapOpen = false;
+  waypoint: { x: number; z: number } | null = null;
+  brain = new Brain();
+  brainTimer = 0;
+  brainSaveT = 0;
+  prevReward = 0;
+  prevOwned = 1;
+  prevFuel = 100;
+  prevEnergy = 100;
+  prevHp = 280;
+  courseName = "";
+  navLine: THREE.Line;
+  chevrons: THREE.Group;
+  localGrid: THREE.GridHelper;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     this.reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x07090d);
-    this.scene.fog = new THREE.FogExp2(0x07090d, 0.011);
-    this.camera = new THREE.PerspectiveCamera(58, 1, 0.1, 900);
+    this.scene.background = new THREE.Color(0x081018);
+    this.scene.fog = new THREE.FogExp2(0x081018, 0.00042);
+    this.camera = new THREE.PerspectiveCamera(58, 1, 0.2, 3200);
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: "high-performance" });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.05;
+    this.renderer.toneMappingExposure = 1.12;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.mats = makeMaterials();
 
-    const hemi = new THREE.HemisphereLight(0xc4d0dc, 0x141820, 1.2);
+    const hemi = new THREE.HemisphereLight(0xb8c8d8, 0x101820, 1.15);
     this.scene.add(hemi);
-    const key = new THREE.DirectionalLight(0xeef2f6, 1.35);
-    key.position.set(40, 70, 18);
+    const key = new THREE.DirectionalLight(0xf2f6fa, 1.45);
+    key.position.set(80, 120, 40);
     this.scene.add(key);
-    const rim = new THREE.DirectionalLight(0x7ea8b8, 0.35);
-    rim.position.set(-30, 20, -40);
+    const rim = new THREE.DirectionalLight(0x7ea8b8, 0.4);
+    rim.position.set(-50, 30, -60);
     this.scene.add(rim);
+    const sun = new THREE.Mesh(
+      new THREE.SphereGeometry(18, 16, 12),
+      new THREE.MeshBasicMaterial({ color: 0xf0f4f8 }),
+    );
+    sun.position.set(900, 280, -700);
+    this.scene.add(sun);
 
-    this.grid = new THREE.GridHelper(WORLD * 2.2, 28, 0x1c2430, 0x141920);
-    (this.grid.material as THREE.Material).transparent = true;
-    (this.grid.material as THREE.Material).opacity = 0.35;
-    this.scene.add(this.grid);
+    this.localGrid = new THREE.GridHelper(420, 21, 0x243040, 0x152028);
+    (this.localGrid.material as THREE.Material).transparent = true;
+    (this.localGrid.material as THREE.Material).opacity = 0.28;
+    this.scene.add(this.localGrid);
+    this.grid = this.localGrid;
 
     const floor = new THREE.Mesh(
-      new THREE.PlaneGeometry(WORLD * 2.4, WORLD * 2.4),
-      new THREE.MeshStandardMaterial({ color: 0x0c1016, metalness: 0.1, roughness: 0.92 }),
+      new THREE.PlaneGeometry(900, 900),
+      new THREE.MeshStandardMaterial({ color: 0x0c1218, metalness: 0.08, roughness: 0.94 }),
     );
     floor.rotation.x = -Math.PI / 2;
-    floor.position.y = -0.04;
+    floor.position.y = -0.06;
+    floor.name = "localFloor";
     this.scene.add(floor);
 
-    this.scene.add(makeStarfield(1100));
+    this.scene.add(makeStarfield(1800));
+    this.addNebulae();
 
     const rockGeo = new THREE.IcosahedronGeometry(1, 0);
-    const rockMat = new THREE.MeshStandardMaterial({ color: 0x3a414c, roughness: 0.82, metalness: 0.2, flatShading: true });
-    this.rockMesh = new THREE.InstancedMesh(rockGeo, rockMat, 36);
+    const rockMat = new THREE.MeshStandardMaterial({ color: 0x4a5360, roughness: 0.82, metalness: 0.18, flatShading: true });
+    this.rockMesh = new THREE.InstancedMesh(rockGeo, rockMat, 90);
     this.scene.add(this.rockMesh);
+
+    const navGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 0, -1)]);
+    this.navLine = new THREE.Line(navGeo, this.mats.nav);
+    this.navLine.frustumCulled = false;
+    this.scene.add(this.navLine);
+    this.chevrons = makeChevronRow(this.mats);
+    this.scene.add(this.chevrons);
 
     this.buildPools();
     this.buildPlanets();
@@ -266,9 +343,33 @@ export class Game {
     } catch {
       /* ignore */
     }
+    if (this.brain.load()) {
+      /* restored */
+    }
 
     this.wireProbe();
     this.publish();
+  }
+
+  addNebulae() {
+    const layers = [
+      { tex: makeNebulaTexture("rgba(90,140,170,0.9)", "rgba(40,70,90,0.4)", 11), pos: [-2400, 90, -2200] as const, s: 1400 },
+      { tex: makeNebulaTexture("rgba(160,90,80,0.85)", "rgba(80,40,40,0.35)", 29), pos: [2200, 110, 1800] as const, s: 1600 },
+      { tex: makeNebulaTexture("rgba(70,120,100,0.8)", "rgba(30,60,50,0.3)", 47), pos: [-400, 80, 800] as const, s: 1200 },
+    ];
+    for (const n of layers) {
+      const mat = new THREE.MeshBasicMaterial({
+        map: n.tex,
+        transparent: true,
+        opacity: 0.45,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      });
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(n.s, n.s * 0.55), mat);
+      mesh.position.set(n.pos[0], n.pos[1], n.pos[2]);
+      mesh.rotation.x = -0.4;
+      this.scene.add(mesh);
+    }
   }
 
   onResize = () => this.resize();
@@ -318,59 +419,91 @@ export class Game {
   }
 
   buildPlanets() {
-    const hex = PLANET_DEF.length;
-    for (let i = 0; i < hex; i++) {
+    for (let i = 0; i < PLANET_DEF.length; i++) {
       const def = PLANET_DEF[i]!;
-      const a = (i / hex) * Math.PI * 2 - Math.PI / 2;
-      const dist = 88 + (i % 2) * 18;
-      const x = Math.cos(a) * dist;
-      const z = Math.sin(a) * dist;
       const g = new THREE.Group();
-      const tex = makePlanetTexture(110 + i * 97, def.base, def.accent);
-      const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.72, metalness: 0.12 });
-      const sphere = new THREE.Mesh(new THREE.SphereGeometry(def.r, 28, 18), mat);
-      sphere.position.y = def.r * 0.35;
+      const tex = makePlanetTexture(110 + i * 97, def.base, def.accent, def.polar);
+      const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.68, metalness: 0.1 });
+      const sphere = new THREE.Mesh(new THREE.SphereGeometry(def.r, 36, 24), mat);
+      sphere.position.y = def.r * 0.42;
       g.add(sphere);
-      if (i % 2 === 0) {
+      const atmo = new THREE.Mesh(
+        new THREE.SphereGeometry(def.r * 1.12, 24, 16),
+        new THREE.MeshBasicMaterial({
+          color: def.owner === "enemy" ? 0xc07070 : def.owner === "player" ? 0x7eb8c8 : 0x8a9aaa,
+          transparent: true,
+          opacity: 0.14,
+          depthWrite: false,
+          side: THREE.BackSide,
+        }),
+      );
+      atmo.position.y = def.r * 0.42;
+      g.add(atmo);
+      if (def.ring) {
         const ring = new THREE.Mesh(
-          new THREE.RingGeometry(def.r * 1.25, def.r * 1.55, 36),
-          new THREE.MeshStandardMaterial({ color: 0x8a949e, side: THREE.DoubleSide, transparent: true, opacity: 0.35, roughness: 0.6 }),
+          new THREE.RingGeometry(def.r * 1.28, def.r * 1.72, 48),
+          new THREE.MeshStandardMaterial({
+            color: 0xb8c4ce,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.42,
+            roughness: 0.55,
+          }),
         );
         ring.rotation.x = Math.PI / 2;
-        ring.position.y = def.r * 0.35;
+        ring.position.y = def.r * 0.42;
         g.add(ring);
       }
-      const station = new THREE.Mesh(
-        new THREE.TorusGeometry(def.r * 0.55, 0.35, 6, 18),
-        this.mats.metal,
-      );
+      const station = new THREE.Mesh(new THREE.TorusGeometry(def.r * 0.58, 0.42, 6, 20), this.mats.metal);
       station.rotation.x = Math.PI / 2;
-      station.position.y = 1.2;
+      station.position.y = 1.4;
       g.add(station);
-      const cap = new THREE.Mesh(new THREE.RingGeometry(def.r + 6, def.r + 7.2, 48), this.mats.ringN);
+      const cap = new THREE.Mesh(new THREE.RingGeometry(def.r + 8, def.r + 10.2, 56), this.mats.ringN);
       cap.rotation.x = Math.PI / 2;
-      cap.position.y = 0.08;
+      cap.position.y = 0.1;
       g.add(cap);
-      g.position.set(x, 0, z);
+      const label = makeLabelSprite(def.name, def.owner === "player" ? "#9ed4b0" : def.owner === "enemy" ? "#e8a8a0" : "#c8d4de");
+      label.position.set(0, def.r * 0.42 + def.r + 6, 0);
+      g.add(label);
+      g.position.set(def.x, 0, def.z);
       this.scene.add(g);
-      let owner: Faction = "enemy";
-      if (i === 0) owner = "player";
-      else if (i === 1 || i === 5) owner = "neutral";
       this.planets.push({
         id: i,
         name: def.name,
-        x,
-        z,
+        x: def.x,
+        z: def.z,
         r: def.r,
-        owner,
-        capture: owner === "neutral" ? 0 : owner === "player" ? 1 : -1,
+        owner: def.owner,
+        capture: def.owner === "neutral" ? 0 : def.owner === "player" ? 1 : -1,
         income: def.income,
         mesh: g,
         ring: cap,
         station,
+        label,
+        atmo,
       });
       this.tintPlanet(this.planets[i]!);
     }
+    this.drawLanes();
+  }
+
+  drawLanes() {
+    const pts: THREE.Vector3[] = [];
+    for (let i = 0; i < this.planets.length; i++) {
+      for (let j = i + 1; j < this.planets.length; j++) {
+        const a = this.planets[i]!;
+        const b = this.planets[j]!;
+        const d = Math.hypot(a.x - b.x, a.z - b.z);
+        if (d > 2100) continue;
+        pts.push(new THREE.Vector3(a.x, 0.4, a.z), new THREE.Vector3(b.x, 0.4, b.z));
+      }
+    }
+    const geo = new THREE.BufferGeometry().setFromPoints(pts);
+    const line = new THREE.LineSegments(
+      geo,
+      new THREE.LineBasicMaterial({ color: 0x3a4a58, transparent: true, opacity: 0.35 }),
+    );
+    this.scene.add(line);
   }
 
   tintPlanet(p: Planet) {

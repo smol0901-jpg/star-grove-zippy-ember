@@ -1,6 +1,6 @@
 export type Faction = "player" | "enemy" | "neutral";
 
-export type Command = "follow" | "defend" | "hunt" | "capture" | "hold";
+export type Command = "follow" | "defend" | "hunt" | "capture" | "hold" | "route";
 
 export type ShipKind =
   | "player"
@@ -34,9 +34,10 @@ export interface Toast {
 export interface MiniMark {
   x: number;
   z: number;
-  kind: "me" | "ally" | "enemy" | "planet" | "pickup";
+  kind: "me" | "ally" | "enemy" | "planet" | "pickup" | "waypoint";
   owner?: Faction;
   yaw?: number;
+  name?: string;
 }
 
 export interface PlanetHud {
@@ -69,6 +70,8 @@ export interface HudSnapshot {
   time: number;
   wave: number;
   boost: number;
+  fuel: number;
+  energy: number;
   lockName: string;
   lockDist: number;
   command: Command;
@@ -82,6 +85,8 @@ export interface HudSnapshot {
   allies: AllyHud[];
   mini: MiniMark[];
   meYaw: number;
+  meX: number;
+  meZ: number;
   shopHint: string;
   highScore: number;
   muted: boolean;
@@ -89,6 +94,13 @@ export interface HudSnapshot {
   prices: Record<ShopId, number>;
   hullLevel: number;
   cannonLevel: number;
+  autopilot: boolean;
+  mapOpen: boolean;
+  waypoint: { x: number; z: number } | null;
+  heading: number;
+  brainEpoch: number;
+  brainReward: number;
+  courseName: string;
 }
 
 export const PRICES: Record<ShopId, number> = {
@@ -108,6 +120,7 @@ export const COMMAND_LABEL: Record<Command, string> = {
   hunt: "ОХОТА",
   capture: "ЗАХВАТ",
   hold: "СТОЯТЬ",
+  route: "КУРС",
 };
 
 export const KIND_LABEL: Record<ShipKind, string> = {
@@ -119,3 +132,5 @@ export const KIND_LABEL: Record<ShipKind, string> = {
   elite: "ЭЛИТА",
   guard: "СТРАЖ",
 };
+
+export const WORLD = 4800;

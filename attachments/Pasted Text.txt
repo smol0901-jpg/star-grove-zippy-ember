@@ -1,0 +1,71 @@
+[plugin:vite:oxc] Transform failed with 20 errors:
+
+[PARSE_ERROR] Identifier `THREE` has already been declared
+    ╭─[ src/game/engine.ts:1:13 ]
+    │
+  1 │ import * as THREE from "three";
+    │             ──┬──  
+    │               ╰──── `THREE` has already been declared here
+    │ 
+ 20 │ import * as THREE from "three";
+    │             ──┬──  
+    │               ╰──── It can not be redeclared here
+────╯
+
+[PARSE_ERROR] Identifier `AudioBus` has already been declared
+    ╭─[ src/game/engine.ts:2:10 ]
+    │
+  2 │ import { AudioBus } from "./audio";
+    │          ────┬───  
+    │              ╰───── `AudioBus` has already been declared here
+    │ 
+ 21 │ import { AudioBus } from "./audio";
+    │          ────┬───  
+    │              ╰───── It can not be redeclared here
+────╯
+
+[PARSE_ERROR] Identifier `Input` has already been declared
+    ╭─[ src/game/engine.ts:3:10 ]
+    │
+  3 │ import { Input } from "./input";
+    │          ──┬──  
+    │            ╰──── `Input` has already been declared here
+    │ 
+ 23 │ import { Input } from "./input";
+    │          ──┬──  
+    │            ╰──── It can not be redeclared here
+────╯
+
+[PARSE_ERROR] Identifier `makeMaterials` has already been declared
+    ╭─[ src/game/engine.ts:4:10 ]
+    │
+  4 │ import { makeMaterials, makePlanetTexture, makeShip, makeStarfield, type MatLib } from "./meshes";
+    │          ──────┬──────  
+    │                ╰──────── `makeMaterials` has already been declared here
+    │ 
+ 27 │   makeMaterials,
+    │   ──────┬──────  
+    │         ╰──────── It can not be redeclared here
+────╯
+
+[PARSE_ERROR] Identifier `makePlanetTexture` has already been declared
+    ╭─[ src/game/engine.ts:4:25 ]
+    │
+  4 │ import { makeMaterials, makePlanetTexture, makeShip, makeStarfield, type MatLib } from "./meshes";
+    │                         ────────┬────────  
+    │                                 ╰────────── `makePlanetTexture` has already been declared here
+    │ 
+ 29 │   makePlanetTexture,
+    │   ────────┬────────  
+    │           ╰────────── It can not be redeclared here
+────╯
+
+...
+/workspace/src/game/engine.ts
+    at transformWithOxc (file:///workspace/node_modules/vite/dist/node/chunks/node.js:4103:19)
+    at TransformPluginContext.transform (file:///workspace/node_modules/vite/dist/node/chunks/node.js:4174:26)
+    at EnvironmentPluginContainer.transform (file:///workspace/node_modules/vite/dist/node/chunks/node.js:30932:51)
+    at async loadAndTransform (file:///workspace/node_modules/vite/dist/node/chunks/node.js:20671:26)
+    at async viteTransformMiddleware (file:///workspace/node_modules/vite/dist/node/chunks/node.js:25205:20)
+Click outside, press Esc key, or fix the code to dismiss.
+You can also disable this overlay by setting server.hmr.overlay to false in vite.config.ts.
